@@ -73,7 +73,7 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400">Version 1.0.5 (Fix Model 404)</p>
+            <p class="text-xs text-slate-400">Version 1.0.6 (Auto-Fallback Models)</p>
         </div>
     </div>
 
@@ -104,6 +104,7 @@
             div.innerHTML = `<span class="opacity-50">[${time}]</span> ${msg}`;
             if (type === 'error') div.className = 'text-red-400 font-bold';
             else if (type === 'success') div.className = 'text-blue-300 font-bold';
+            else if (type === 'warn') div.className = 'text-yellow-400';
             logsDiv.appendChild(div);
             logsDiv.scrollTop = logsDiv.scrollHeight;
         }
@@ -251,6 +252,56 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 `;
         };
 
+        // Fonction intelligente pour essayer plusieurs modèles
+        async function fetchGeminiWithFallback(payload) {
+            const models = [
+                "gemini-1.5-flash",          // Standard
+                "gemini-1.5-flash-001",      // Version fixe
+                "gemini-1.5-pro",            // Modèle plus puissant
+                "gemini-1.5-flash-8b",       // Modèle rapide
+                "gemini-1.5-flash-latest"    // Alias dynamique
+            ];
+
+            let lastError = null;
+
+            for (const model of models) {
+                log(`Essai avec le modèle : ${model}...`, 'info');
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${CONFIG.GEMINI_API_KEY}`;
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    // Si succès, on retourne direct
+                    if (response.ok) {
+                        return await response.json();
+                    }
+
+                    // Si 404, c'est que le modèle n'existe pas pour cette clé => on continue
+                    if (response.status === 404) {
+                        log(`Modèle ${model} non disponible (404).`, 'warn');
+                        continue;
+                    }
+                    
+                    // Pour les autres erreurs (400, 403, 500), on arrête car c'est un vrai problème
+                    const errorText = await response.text();
+                    throw new Error(`Erreur ${response.status}: ${errorText}`);
+
+                } catch (e) {
+                    lastError = e;
+                    // On ne log que si ce n'est pas une simple boucle continue
+                    if (!e.message.includes('404')) {
+                        console.error(e);
+                    }
+                }
+            }
+            // Si on arrive ici, aucun modèle n'a marché
+            throw lastError || new Error("Aucun modèle Gemini n'est accessible avec cette clé API.");
+        }
+
         btn.addEventListener('click', async () => {
             const file = fileInput.files[0];
             if (!file) { log("Erreur: Aucun fichier.", "error"); return; }
@@ -264,35 +315,21 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                 const base64Audio = await fileToBase64(file);
 
                 setLoading(true, "Analyse Gemini...");
-                
-                // CORRECTION: Utilisation du modèle strict 'gemini-1.5-flash-001'
-                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=" + CONFIG.GEMINI_API_KEY;
-                
-                log("Envoi à Gemini...", "info");
+                log("Envoi à Gemini... (Recherche du meilleur modèle)", "info");
 
-                const response = await fetch(geminiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [
-                                { text: getSystemPrompt(file.name, new Date().toLocaleString()) },
-                                { inline_data: { mime_type: file.type || "audio/mp3", data: base64Audio } }
-                            ]
-                        }]
-                    })
-                });
+                // Préparation du payload
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: getSystemPrompt(file.name, new Date().toLocaleString()) },
+                            { inline_data: { mime_type: file.type || "audio/mp3", data: base64Audio } }
+                        ]
+                    }]
+                };
 
-                // GESTION ERREUR AVANCÉE
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error("Erreur Gemini Détail:", errorText); // Pour la console F12
-                    const errorJson = JSON.parse(errorText);
-                    const errorMessage = errorJson.error.message || errorText;
-                    throw new Error(`Erreur Gemini (${response.status}): ${errorMessage}`);
-                }
+                // APPEL AVEC FALLBACK
+                const data = await fetchGeminiWithFallback(payload);
 
-                const data = await response.json();
                 let rawText = data.candidates[0].content.parts[0].text;
                 rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
                 const eventData = JSON.parse(rawText);
@@ -317,7 +354,9 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 
             } catch (error) {
                 console.error(error);
-                log(`ERREUR CRITIQUE: ${error.message}`, 'error');
+                let msg = error.message;
+                if (msg.includes('404')) msg = "Modèles Gemini introuvables. Vérifiez que votre Clé API vient bien de Google AI Studio (aistudio.google.com) et non de Vertex AI.";
+                log(`ERREUR CRITIQUE: ${msg}`, 'error');
                 setLoading(false);
             }
         });
