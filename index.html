@@ -92,7 +92,7 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400">Développé pour BoxDiag - Version 1.0.1 (Fix API)</p>
+            <p class="text-xs text-slate-400">Développé pour BoxDiag - Version 1.0.2 (TEST FINAL)</p>
         </div>
     </div>
 
@@ -350,7 +350,7 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                 const now = new Date().toLocaleString('fr-FR');
                 const finalPrompt = getSystemPrompt(file.name, now);
 
-                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + geminiKey;
                 
                 const payload = {
                     contents: [{
@@ -445,4 +445,5 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
     </script>
 </body>
 </html>
+
 
