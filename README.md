@@ -1,2 +1,2 @@
 # boxdiag-app
-Call Record
+BoxDiagRecord
