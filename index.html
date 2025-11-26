@@ -40,7 +40,12 @@
                 <h1 class="text-2xl font-bold tracking-tight">BoxDiag Assistant</h1>
                 <p class="text-blue-200 text-sm mt-1">Automatisation de prise de rendez-vous via Audio IA</p>
             </div>
-            <div class="h-10 w-10 bg-white/10 rounded-full flex items-center justify-center">🎤</div>
+            <div class="flex items-center gap-3">
+                <span id="modelBadge" class="hidden px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-white/20 text-white border border-white/30">
+                    Détection...
+                </span>
+                <div class="h-10 w-10 bg-white/10 rounded-full flex items-center justify-center">🎤</div>
+            </div>
         </div>
 
         <div class="p-8 space-y-8">
@@ -53,6 +58,11 @@
                         </div>
                         <input id="audioFile" type="file" class="hidden" accept="audio/*" />
                     </label>
+                </div>
+
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-xs text-yellow-800 mb-4">
+                    <p class="font-bold">⚠️ Important :</p>
+                    <p>Lors de la connexion Google, sélectionnez bien le compte <span class="font-mono bg-yellow-200 px-1 rounded">contact@boxdiag.fr</span> pour l'agenda.</p>
                 </div>
 
                 <button id="processBtn" class="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transform transition hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3">
@@ -73,7 +83,7 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400">Version 1.0.7 (Fix API Activation)</p>
+            <p class="text-xs text-slate-400">Version 1.0.9 (Support Multi-comptes & Pro)</p>
         </div>
     </div>
 
@@ -97,11 +107,11 @@
         const spinner = document.getElementById('spinner');
         const btnText = document.getElementById('btnText');
         const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const modelBadge = document.getElementById('modelBadge');
 
         function log(msg, type = 'info') {
             const div = document.createElement('div');
             const time = new Date().toLocaleTimeString();
-            // Allow HTML in logs for links
             div.innerHTML = `<span class="opacity-50">[${time}]</span> ${msg}`;
             if (type === 'error') div.className = 'text-red-400 font-bold';
             else if (type === 'success') div.className = 'text-blue-300 font-bold';
@@ -150,8 +160,8 @@
                         resolve(resp.access_token);
                     },
                 });
-                if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'});
-                else tokenClient.requestAccessToken({prompt: ''});
+                // Force le prompt pour permettre de choisir le compte
+                tokenClient.requestAccessToken({prompt: 'select_account'}); 
             });
         }
 
@@ -253,65 +263,52 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 `;
         };
 
-        // Fonction intelligente pour essayer plusieurs modèles
-        async function fetchGeminiWithFallback(payload) {
-            const models = [
-                "gemini-1.5-flash",          // Standard
-                "gemini-1.5-flash-latest",   // Alias
-                "gemini-1.5-pro",            // Pro
-                "gemini-1.5-pro-latest",     // Pro alias
-                "gemini-pro",                // 1.0 (Souvent dispo quand 1.5 ne l'est pas)
-                "gemini-1.0-pro"             // 1.0 alias
-            ];
-
-            let lastError = null;
-            let allAre404 = true;
-
-            for (const model of models) {
-                log(`Essai avec le modèle : ${model}...`, 'info');
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${CONFIG.GEMINI_API_KEY}`;
-                
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    // Si succès, on retourne direct
-                    if (response.ok) {
-                        return await response.json();
-                    }
-
-                    // Si 404, c'est que le modèle n'existe pas pour cette clé
-                    if (response.status === 404) {
-                        log(`Modèle ${model} non disponible (404).`, 'warn');
-                        // On continue, mais on note que c'est une 404
-                    } else {
-                        // Si c'est une autre erreur (400, 403, 500), ce n'est pas juste un "modèle pas trouvé"
-                        allAre404 = false;
-                        const errorText = await response.text();
-                        throw new Error(`Erreur ${response.status}: ${errorText}`);
-                    }
-
-                } catch (e) {
-                    lastError = e;
-                    if (!e.message.includes('404')) {
-                        console.error(e);
-                        allAre404 = false;
-                    }
-                }
-            }
+        // --- DÉCOUVERTE AUTO MODÈLES + UI UPDATE ---
+        async function findBestAvailableModel(apiKey) {
+            log("Interrogation de l'API pour lister les modèles disponibles...", "info");
             
-            // DIAGNOSTIC FINAL
-            if (allAre404) {
-                const activationUrl = "https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview";
-                log(`⚠️ <strong>ACTION REQUISE :</strong> L'API "Generative Language" n'est pas activée sur votre projet Google Cloud.`, 'error');
-                log(`<a href="${activationUrl}" target="_blank" class="block w-full text-center bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-2">CLIQUER ICI POUR ACTIVER L'API</a>`, 'error');
-                throw new Error("API non activée (Code 404 sur tous les modèles).");
-            }
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                if (!response.ok) throw new Error(`Erreur listing modèles (${response.status})`);
+                const data = await response.json();
+                
+                if (!data.models || data.models.length === 0) throw new Error("Aucun modèle trouvé.");
 
-            throw lastError || new Error("Aucun modèle Gemini n'est accessible.");
+                const usableModels = data.models.filter(m => 
+                    m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")
+                );
+
+                let bestModel = null;
+                // Priorité au modèle PRO car compte payant
+                bestModel = usableModels.find(m => m.name.includes("gemini-1.5-pro"));
+                if (!bestModel) bestModel = usableModels.find(m => m.name.includes("gemini-pro"));
+                if (!bestModel) bestModel = usableModels.find(m => m.name.includes("gemini-1.5-flash"));
+                if (!bestModel && usableModels.length > 0) bestModel = usableModels[0];
+
+                if (bestModel) {
+                    const modelId = bestModel.name.replace("models/", "");
+                    
+                    // Mise à jour du Badge UI
+                    modelBadge.classList.remove('hidden');
+                    if(modelId.includes('pro')) {
+                        modelBadge.innerHTML = "✨ MODE PRO ACTIF";
+                        modelBadge.className = "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-500/80 text-white border border-purple-300 shadow-lg animate-pulse";
+                        log(`🚀 Mode Performance activé : <span class="text-purple-300 font-bold">${modelId}</span>`, "success");
+                    } else {
+                        modelBadge.innerHTML = "⚡ MODE RAPIDE";
+                        modelBadge.className = "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/80 text-white border border-blue-300";
+                        log(`✅ Modèle standard activé : <span class="text-white font-bold">${modelId}</span>`, "success");
+                    }
+                    
+                    return modelId;
+                } else {
+                    throw new Error("Aucun modèle compatible trouvé.");
+                }
+
+            } catch (e) {
+                log(`Échec découverte auto : ${e.message}`, "warn");
+                return null;
+            }
         }
 
         btn.addEventListener('click', async () => {
@@ -320,16 +317,21 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 
             try {
                 setLoading(true, "Authentification...");
+                log("Veuillez sélectionner <b>contact@boxdiag.fr</b> dans la fenêtre Google.", "warn");
                 await handleAuth();
                 log("Authentification réussie.", "success");
 
                 setLoading(true, "Lecture audio...");
                 const base64Audio = await fileToBase64(file);
 
-                setLoading(true, "Analyse Gemini...");
-                log("Envoi à Gemini... (Recherche du meilleur modèle)", "info");
+                setLoading(true, "Optimisation IA...");
+                let modelId = await findBestAvailableModel(CONFIG.GEMINI_API_KEY);
+                if (!modelId) modelId = "gemini-1.5-flash"; // Fallback ultime
 
-                // Préparation du payload
+                setLoading(true, "Analyse " + (modelId.includes('pro') ? "Approfondie" : "Rapide") + "...");
+                
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${CONFIG.GEMINI_API_KEY}`;
+                
                 const payload = {
                     contents: [{
                         parts: [
@@ -339,9 +341,18 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                     }]
                 };
 
-                // APPEL AVEC FALLBACK
-                const data = await fetchGeminiWithFallback(payload);
+                const response = await fetch(geminiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Erreur Gemini (${response.status}): ${errorText}`);
+                }
+
+                const data = await response.json();
                 let rawText = data.candidates[0].content.parts[0].text;
                 rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
                 const eventData = JSON.parse(rawText);
@@ -361,15 +372,12 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                 });
 
                 log(`Événement créé ! <a href="${insertResponse.result.htmlLink}" target="_blank" class="underline font-bold">Voir l'agenda</a>`, 'success');
-                alert("Succès !");
+                alert("Succès ! Rendez-vous ajouté à l'agenda BoxDiag.");
                 setLoading(false);
 
             } catch (error) {
                 console.error(error);
-                // Le message est déjà loggé proprement dans fetchGeminiWithFallback si c'est une 404
-                if (!error.message.includes('API non activée')) {
-                    log(`ERREUR CRITIQUE: ${error.message}`, 'error');
-                }
+                log(`ERREUR CRITIQUE: ${error.message}`, 'error');
                 setLoading(false);
             }
         });
