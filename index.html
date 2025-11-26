@@ -29,6 +29,14 @@
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        
+        .shake { animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both; transform: translate3d(0, 0, 0); backface-visibility: hidden; perspective: 1000px; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex items-center justify-center p-4">
@@ -65,6 +73,14 @@
                     <p>Lors de la connexion Google, sélectionnez bien le compte <span class="font-mono bg-yellow-200 px-1 rounded">contact@boxdiag.fr</span> pour l'agenda.</p>
                 </div>
 
+                <!-- ZONE DE SECOURS (Cachée par défaut) -->
+                <div id="rescueKeyContainer" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 animate-fade-in">
+                    <label class="block text-xs font-bold text-red-600 mb-1 uppercase">⚠️ Clé API Expirée ou Révoquée</label>
+                    <input type="text" id="rescueKeyInput" placeholder="Collez votre NOUVELLE clé Gemini ici (AIza...)" 
+                           class="w-full px-3 py-2 border border-red-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-500 text-slate-700">
+                    <p class="text-[10px] text-red-500 mt-1">Votre clé actuelle a été désactivée par sécurité. Entrez-en une nouvelle ci-dessus.</p>
+                </div>
+
                 <button id="processBtn" class="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transform transition hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3">
                     <span id="btnText">Sélectionner le fichier audio et traiter</span>
                     <div id="spinner" class="hidden h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -83,14 +99,14 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400">Version 1.0.9 (Support Multi-comptes & Pro)</p>
+            <p class="text-xs text-slate-400">Version 1.1.1 (Nouvelle Clé Intégrée)</p>
         </div>
     </div>
 
     <script>
         // --- CONFIGURATION ---
         const CONFIG = {
-            GEMINI_API_KEY: "AIzaSyBOBtY_bqaYBm6u8hWZYOi2TGW4EzfmNUk",
+            GEMINI_API_KEY: "AIzaSyCKJ1Eh2IG6WiXYrZTN_Xt9hKJ2Hoj4NUA", 
             GOOGLE_API_KEY: "AIzaSyCttcGULsWx2E1GaUf6qF4eodwTV7_q53k",
             CLIENT_ID: "77752051454-n0p16qpi5s69lm0trmk62o04cgcpp8o2.apps.googleusercontent.com"
         };
@@ -108,6 +124,8 @@
         const btnText = document.getElementById('btnText');
         const fileNameDisplay = document.getElementById('fileNameDisplay');
         const modelBadge = document.getElementById('modelBadge');
+        const rescueContainer = document.getElementById('rescueKeyContainer');
+        const rescueInput = document.getElementById('rescueKeyInput');
 
         function log(msg, type = 'info') {
             const div = document.createElement('div');
@@ -160,7 +178,6 @@
                         resolve(resp.access_token);
                     },
                 });
-                // Force le prompt pour permettre de choisir le compte
                 tokenClient.requestAccessToken({prompt: 'select_account'}); 
             });
         }
@@ -263,12 +280,21 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 `;
         };
 
-        // --- DÉCOUVERTE AUTO MODÈLES + UI UPDATE ---
+        // --- DÉCOUVERTE AUTO MODÈLES + GESTION ERREURS CLÉ ---
         async function findBestAvailableModel(apiKey) {
             log("Interrogation de l'API pour lister les modèles disponibles...", "info");
             
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                
+                // GESTION SPECIALE ERREUR CLÉ
+                if (response.status === 400 || response.status === 403) {
+                    const errJson = await response.json().catch(() => ({}));
+                    if(errJson.error && (errJson.error.message.includes('leaked') || errJson.error.status === 'PERMISSION_DENIED' || errJson.error.message.includes('key'))) {
+                         throw new Error("KEY_INVALID");
+                    }
+                }
+
                 if (!response.ok) throw new Error(`Erreur listing modèles (${response.status})`);
                 const data = await response.json();
                 
@@ -279,7 +305,6 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                 );
 
                 let bestModel = null;
-                // Priorité au modèle PRO car compte payant
                 bestModel = usableModels.find(m => m.name.includes("gemini-1.5-pro"));
                 if (!bestModel) bestModel = usableModels.find(m => m.name.includes("gemini-pro"));
                 if (!bestModel) bestModel = usableModels.find(m => m.name.includes("gemini-1.5-flash"));
@@ -288,7 +313,6 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                 if (bestModel) {
                     const modelId = bestModel.name.replace("models/", "");
                     
-                    // Mise à jour du Badge UI
                     modelBadge.classList.remove('hidden');
                     if(modelId.includes('pro')) {
                         modelBadge.innerHTML = "✨ MODE PRO ACTIF";
@@ -299,13 +323,13 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                         modelBadge.className = "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/80 text-white border border-blue-300";
                         log(`✅ Modèle standard activé : <span class="text-white font-bold">${modelId}</span>`, "success");
                     }
-                    
                     return modelId;
                 } else {
                     throw new Error("Aucun modèle compatible trouvé.");
                 }
 
             } catch (e) {
+                if(e.message === "KEY_INVALID") throw e; // Propager l'erreur de clé
                 log(`Échec découverte auto : ${e.message}`, "warn");
                 return null;
             }
@@ -314,6 +338,13 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
         btn.addEventListener('click', async () => {
             const file = fileInput.files[0];
             if (!file) { log("Erreur: Aucun fichier.", "error"); return; }
+
+            // Vérifier si une clé de secours est entrée
+            let currentGeminiKey = CONFIG.GEMINI_API_KEY;
+            if (rescueInput.value.trim().length > 10) {
+                currentGeminiKey = rescueInput.value.trim();
+                log("Utilisation de la clé de secours fournie.", "warn");
+            }
 
             try {
                 setLoading(true, "Authentification...");
@@ -325,12 +356,20 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                 const base64Audio = await fileToBase64(file);
 
                 setLoading(true, "Optimisation IA...");
-                let modelId = await findBestAvailableModel(CONFIG.GEMINI_API_KEY);
-                if (!modelId) modelId = "gemini-1.5-flash"; // Fallback ultime
+                let modelId;
+                try {
+                    modelId = await findBestAvailableModel(currentGeminiKey);
+                } catch (e) {
+                    if (e.message === "KEY_INVALID") {
+                        throw new Error("Votre clé API est invalide ou expirée. Veuillez utiliser le champ rouge ci-dessus.");
+                    }
+                }
+                
+                if (!modelId) modelId = "gemini-1.5-flash"; 
 
                 setLoading(true, "Analyse " + (modelId.includes('pro') ? "Approfondie" : "Rapide") + "...");
                 
-                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${CONFIG.GEMINI_API_KEY}`;
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${currentGeminiKey}`;
                 
                 const payload = {
                     contents: [{
@@ -349,6 +388,18 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 
                 if (!response.ok) {
                     const errorText = await response.text();
+                    
+                    // DETECTION ERREUR CLE
+                    if (response.status === 400 || response.status === 403) {
+                        if (errorText.includes('leaked') || errorText.includes('key') || errorText.includes('PERMISSION_DENIED')) {
+                             // Afficher l'UI de secours
+                             rescueContainer.classList.remove('hidden');
+                             rescueContainer.classList.add('shake'); // Petit effet visuel
+                             btnText.innerText = "Réessayer avec la nouvelle clé";
+                             throw new Error("CLÉ API REJETÉE (Fuitée/Invalide). Entrez une nouvelle clé dans le champ rouge.");
+                        }
+                    }
+
                     throw new Error(`Erreur Gemini (${response.status}): ${errorText}`);
                 }
 
@@ -377,7 +428,13 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 
             } catch (error) {
                 console.error(error);
-                log(`ERREUR CRITIQUE: ${error.message}`, 'error');
+                log(`ERREUR : ${error.message}`, 'error');
+                
+                // Si c'est une erreur de clé, on s'assure que le champ est visible
+                if (error.message.includes("CLÉ") || error.message.includes("key")) {
+                     rescueContainer.classList.remove('hidden');
+                }
+                
                 setLoading(false);
             }
         });
