@@ -73,7 +73,7 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400 font-bold text-green-600">Version 1.0.4 (CORRECTIF MODÈLE)</p>
+            <p class="text-xs text-slate-400 font-bold text-green-600">Version 1.0.5 (CORRECTIF MODÈLE)</p>
         </div>
     </div>
 
@@ -185,7 +185,7 @@
                 setLoading(true, "Analyse Gemini...");
                 
                 // --- CORRECTION DU NOM DU MODÈLE ICI ---
-                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + CONFIG.GEMINI_API_KEY;
+                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CONFIG.GEMINI_API_KEY;
                 
                 log("Envoi à Gemini...", "info");
 
@@ -242,3 +242,4 @@
     </script>
 </body>
 </html>
+
