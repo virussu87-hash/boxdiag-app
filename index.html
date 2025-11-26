@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BoxDiag | Automatisation Agenda</title>
-    <!-- Tailwind CSS pour un design moderne et minimaliste -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Identity Services (GSI) pour l'authentification -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <!-- Google API Client -->
     <script src="https://apis.google.com/js/api.js" async defer></script>
 
     <style>
@@ -50,7 +47,6 @@
 
     <div class="max-w-3xl w-full bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-100">
         
-        <!-- Header -->
         <div class="bg-blue-900 p-6 text-white flex justify-between items-center">
             <div>
                 <h1 class="text-2xl font-bold tracking-tight">BoxDiag Assistant</h1>
@@ -65,10 +61,6 @@
 
         <div class="p-8 space-y-8">
 
-            <!-- Section Configuration (MASQUÉE - Clés intégrées dans le code) -->
-            <!-- Les champs de saisie ont été retirés pour une interface plus propre -->
-
-            <!-- Zone d'Action -->
             <div class="space-y-4">
                 <div class="flex items-center justify-center w-full">
                     <label for="audioFile" class="flex flex-col items-center justify-center w-full h-32 border-2 border-blue-300 border-dashed rounded-lg cursor-pointer bg-blue-50 hover:bg-blue-100 transition-colors">
@@ -87,7 +79,6 @@
                 </button>
             </div>
 
-            <!-- Console de Logs -->
             <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs h-64 overflow-y-auto shadow-inner custom-scrollbar">
                 <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
                     <span class="text-slate-400 uppercase font-bold">Journaux système</span>
@@ -100,13 +91,11 @@
 
         </div>
         
-        <!-- Footer -->
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
             <p class="text-xs text-slate-400">Développé pour BoxDiag - Version 1.0.1 (Fix API)</p>
         </div>
     </div>
 
-    <!-- Logique JavaScript -->
     <script>
         // --- CONSTANTES DE CONFIGURATION (HARDCODED) ---
         const CONFIG = {
@@ -176,8 +165,6 @@
         }
 
         async function initializeGapiClient() {
-            // On ne peut pas initier le client ici car les clés sont entrées par l'utilisateur
-            // On le fera au moment du clic si nécessaire, ou on configure juste le chargement
             gapiInited = true;
             log('Librairie GAPI chargée.', 'info');
         }
@@ -190,14 +177,12 @@
 
         // Configurer les callbacks globaux pour les scripts Google
         window.onload = () => {
-            // Les scripts sont async, on vérifie leur chargement
             if (typeof gapi !== 'undefined') gapiLoaded();
             if (typeof google !== 'undefined') gisLoaded();
         };
 
         // 3. Gestionnaire de connexion
         async function handleAuth() {
-            // Utilisation des constantes au lieu des inputs
             const clientId = CONFIG.CLIENT_ID;
             const apiKey = CONFIG.GOOGLE_API_KEY;
 
@@ -226,13 +211,11 @@
                     },
                 });
 
-                // Si on a déjà un token valide (session courte), on peut vérifier
-                // Mais pour la simplicité, on demande le token (si déjà connecté, Google le gère sans popup parfois)
                 if (gapi.client.getToken() === null) {
                     log('Demande de permission Google Agenda...', 'warn');
                     tokenClient.requestAccessToken({prompt: 'consent'});
                 } else {
-                    tokenClient.requestAccessToken({prompt: ''}); // Skip prompt if possible
+                    tokenClient.requestAccessToken({prompt: ''});
                 }
             });
         }
@@ -244,7 +227,6 @@
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = () => {
-                    // On retire le préfixe "data:audio/mp3;base64,"
                     const base64String = reader.result.split(',')[1]; 
                     resolve(base64String);
                 };
@@ -344,11 +326,9 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
         // --- PROCESSUS PRINCIPAL ---
 
         btn.addEventListener('click', async () => {
-            // Utilisation de la constante Gemini
             const geminiKey = CONFIG.GEMINI_API_KEY;
             const file = fileInput.files[0];
 
-            // Validations de base
             if (!geminiKey) { log("Erreur: Clé Gemini manquante dans la config.", "error"); return; }
             if (!file) { log("Erreur: Aucun fichier audio sélectionné.", "error"); return; }
 
@@ -391,9 +371,7 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 
                 const data = await response.json();
                 
-                // Extraction et nettoyage du JSON
                 let rawText = data.candidates[0].content.parts[0].text;
-                // Nettoyage des balises markdown ```json et ```
                 rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
                 
                 log("Réponse reçue de Gemini. Parsing...", 'info');
@@ -409,7 +387,7 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                     'location': eventData.location,
                     'description': eventData.eventDescription,
                     'start': {
-                        'dateTime': eventData.startTime, // Format attendu: '2023-05-28T09:00:00-07:00' ou '2023-05-28T09:00:00'
+                        'dateTime': eventData.startTime,
                         'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone
                     },
                     'end': {
@@ -418,7 +396,6 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                     }
                 };
 
-                // NOTE: Utilisation de await direct au lieu de .execute() pour mieux catcher les erreurs
                 try {
                     const insertResponse = await gapi.client.calendar.events.insert({
                         'calendarId': 'primary',
@@ -433,7 +410,7 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                         throw new Error("Pas de lien de confirmation reçu de Google Agenda.");
                     }
                 } catch (gapiError) {
-                    throw gapiError; // Renvoyer à l'attrapeur principal
+                    throw gapiError;
                 }
 
                 setLoading(false);
@@ -442,24 +419,21 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
                 console.error("Erreur capturée:", error);
                 setLoading(false);
 
-                // Analyse spécifique de l'erreur "API Disabled"
                 let errorMsg = error.message || JSON.stringify(error);
-                let errorBody = error.result || error; // GAPI errors are often in .result
+                let errorBody = error.result || error;
 
-                // Vérification profonde de l'erreur JSON Google
                 if (errorBody && errorBody.error) {
                     const code = errorBody.error.code;
                     const msg = errorBody.error.message;
                     
                     if (code === 403 && (msg.includes("Google Calendar API has not been used") || msg.includes("is disabled"))) {
-                        // Extraction de l'URL d'activation si présente
                         const match = msg.match(/https:\/\/console\.developers\.google\.com\/apis\/api\/calendar-json\.googleapis\.com\/overview\?project=\d+/);
                         const activationUrl = match ? match[0] : "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com";
                         
                         log(`⚠️ L'API Google Calendar n'est pas activée sur votre projet.`, 'warn');
                         log(`<a href="${activationUrl}" target="_blank" class="text-white underline font-bold bg-red-600 px-2 py-1 rounded">CLIQUEZ ICI POUR ACTIVER L'API</a>`, 'error');
                         log(`Après activation, attendez 2 minutes et réessayez.`, 'warn');
-                        return; // Stop here
+                        return;
                     }
                     errorMsg = `Google API Error (${code}): ${msg}`;
                 }
