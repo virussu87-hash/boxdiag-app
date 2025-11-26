@@ -73,7 +73,7 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400">Version 1.0.4 (Prod - Full Prompt)</p>
+            <p class="text-xs text-slate-400">Version 1.0.5 (Fix Model 404)</p>
         </div>
     </div>
 
@@ -265,8 +265,8 @@ RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
 
                 setLoading(true, "Analyse Gemini...");
                 
-                // CONSTRUCTION URL SÉCURISÉE
-                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CONFIG.GEMINI_API_KEY;
+                // CORRECTION: Utilisation du modèle strict 'gemini-1.5-flash-001'
+                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=" + CONFIG.GEMINI_API_KEY;
                 
                 log("Envoi à Gemini...", "info");
 
