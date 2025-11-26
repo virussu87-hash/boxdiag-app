@@ -73,7 +73,7 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400">Version 1.0.3 (DEBUG MODE)</p>
+            <p class="text-xs text-slate-400 font-bold text-green-600">Version 1.0.4 (CORRECTIF MODÈLE)</p>
         </div>
     </div>
 
@@ -184,8 +184,8 @@
 
                 setLoading(true, "Analyse Gemini...");
                 
-                // CONSTRUCTION URL SÉCURISÉE
-                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CONFIG.GEMINI_API_KEY;
+                // --- CORRECTION DU NOM DU MODÈLE ICI ---
+                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + CONFIG.GEMINI_API_KEY;
                 
                 log("Envoi à Gemini...", "info");
 
@@ -202,10 +202,9 @@
                     })
                 });
 
-                // GESTION ERREUR AVANCÉE
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error("Erreur Gemini Détail:", errorText); // Pour la console F12
+                    console.error("Erreur Gemini Détail:", errorText);
                     const errorJson = JSON.parse(errorText);
                     const errorMessage = errorJson.error.message || errorText;
                     throw new Error(`Erreur Gemini (${response.status}): ${errorMessage}`);
