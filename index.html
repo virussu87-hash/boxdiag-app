@@ -73,7 +73,7 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400 font-bold text-green-600">Version 1.0.6 (FIX NOM TECHNIQUE)</p>
+            <p class="text-xs text-slate-400 font-bold text-green-600">Version 1.0.7 (CLEAN RESTART)</p>
         </div>
     </div>
 
@@ -120,10 +120,12 @@
             }
         }
 
+        // Ecouteur pour la sélection de fichier
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
                 fileNameDisplay.innerText = "Fichier sélectionné : " + e.target.files[0].name;
                 fileNameDisplay.className = "text-sm text-green-600 font-bold";
+                log("Fichier prêt : " + e.target.files[0].name, 'success');
             }
         });
 
@@ -184,8 +186,8 @@
 
                 setLoading(true, "Analyse Gemini...");
                 
-                // --- CORRECTION DU NOM DU MODÈLE ICI ---
-                cconst geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=" + CONFIG.GEMINI_API_KEY;
+                // URL STANDARD (SANS BACKTICKS, AVEC +)
+                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CONFIG.GEMINI_API_KEY;
                 
                 log("Envoi à Gemini...", "info");
 
@@ -242,5 +244,3 @@
     </script>
 </body>
 </html>
-
-
