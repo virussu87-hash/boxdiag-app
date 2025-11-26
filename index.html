@@ -73,7 +73,7 @@
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400 font-bold text-green-600">Version 1.0.7 (CLEAN RESTART)</p>
+            <p class="text-xs text-slate-400">Version 1.0.4 (Prod - Full Prompt)</p>
         </div>
     </div>
 
@@ -120,12 +120,10 @@
             }
         }
 
-        // Ecouteur pour la sélection de fichier
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
                 fileNameDisplay.innerText = "Fichier sélectionné : " + e.target.files[0].name;
                 fileNameDisplay.className = "text-sm text-green-600 font-bold";
-                log("Fichier prêt : " + e.target.files[0].name, 'success');
             }
         });
 
@@ -166,10 +164,91 @@
         }
 
         const getSystemPrompt = (filename, currentDate) => {
-            return `Rôle : Assistant pour BoxDiag. Fichier: ${filename}. Date: ${currentDate}.
-            SCÉNARIO 1 (RDV): JSON avec eventTitle, startTime, endTime, location, eventDescription.
-            SCÉNARIO 2 (Pas de RDV): Idem, durée 30min, titre 'Discussion'.
-            Réponds UNIQUEMENT en JSON valide.`;
+            return `
+Rôle : Tu es un assistant IA pour Serghei RUSSU, Société: BoxDiag.
+Le fichier audio fourni est une discussion entre moi et un client. Le nom du fichier audio est : ${filename}.
+
+Règles :
+1. Analyse l'audio pour extraire les infos.
+2. Corrige les fautes pour la lisibilité.
+3. Standardise les adresses format Google Maps.
+4. La date actuelle pour le calcul est : ${currentDate}.
+
+Tu dois déterminer si c'est le SCÉNARIO 1 (RDV convenu) ou SCÉNARIO 2 (Pas de RDV).
+
+SORTIE ATTENDUE : Tu dois répondre UNIQUEMENT avec un objet JSON (sans bloc de code markdown) contenant les champs suivants :
+- \`eventTitle\`: Selon les règles ci-dessous.
+- \`startTime\`: Format ISO 8601.
+- \`endTime\`: Format ISO 8601 (Durée 60min pour Scénario 1, 30min pour Scénario 2).
+- \`location\`: L'adresse standardisée.
+- \`eventDescription\`: Une chaîne de texte MULTILIGNE qui respecte strictement les modèles de texte ci-dessous (ne mets pas de JSON ici, mais du texte formaté avec sauts de ligne).
+
+--- RÈGLES DE CONTENU ---
+
+SCÉNARIO 1 : RDV CONVENU
+Si l'heure est manquante mais la date convenue, mets 08h00.
+Titre Agenda : \`[Nom Client] - [Prix]€\` (ou "NC.").
+Description (modèle strict à respecter dans le JSON field \`eventDescription\`) :
+RENDEZ-VOUS CONFIRMÉ
+
+Client :
+Nom : [Nom extrait]
+Téléphone : [Numéro extrait du nom de fichier ou audio]
+Email : [Email]
+De la part de: [Nom]
+--------------------
+Bien Immobilier :
+ - Adresse : [Adresse]
+ - Accès : [Info]
+ - Type : [Type]
+ - Année construction : [Année]
+ - Surface approx. : [Surface]
+ - Numéro de lot : [Numéro]
+ - Dépendances (Cave/Garage) : [Info]
+--------------------
+Prestation :
+Diagnostics : [Liste]
+Prix convenu : [Prix]
+--------------------
+Rendez-vous :
+Date : [JJ/MM/AAAA]
+Heure : [HH:MM]
+--------------------
+Liste des tâches convenues:
+BoxDiag - [Tâches]
+Client - [Tâches]
+--------------------
+RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
+[Résumé complet]
+
+SCÉNARIO 2 : PAS DE RDV
+Date/Heure : Maintenant (immédiat). Durée 30 min.
+Titre Agenda : \`Discussion téléphonique - [Nom Propriétaire]\`
+Description (modèle strict à respecter dans le JSON field \`eventDescription\`) :
+Sujet principal : [Sujet]
+
+Client :
+Nom : [Nom]
+Téléphone : [Numéro extrait du nom de fichier ou audio]
+Email : [Email]
+De la part de: [Nom]
+
+Bien Immobilier :
+ - Adresse : [Adresse]
+ - Accès : [Infos]
+ - Type : [Type]
+ - Année construction : [Année]
+ - Surface approx. : [Surface]
+ - Numéro de lot : [Numéro]
+ - Dépendances : [Infos]
+--------------------
+Liste des tâches convenues:
+BoxDiag - [Tâches]
+Client - [Tâches]
+--------------------
+RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
+[Résumé complet]
+`;
         };
 
         btn.addEventListener('click', async () => {
@@ -186,7 +265,7 @@
 
                 setLoading(true, "Analyse Gemini...");
                 
-                // URL STANDARD (SANS BACKTICKS, AVEC +)
+                // CONSTRUCTION URL SÉCURISÉE
                 const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CONFIG.GEMINI_API_KEY;
                 
                 log("Envoi à Gemini...", "info");
@@ -204,9 +283,10 @@
                     })
                 });
 
+                // GESTION ERREUR AVANCÉE
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error("Erreur Gemini Détail:", errorText);
+                    console.error("Erreur Gemini Détail:", errorText); // Pour la console F12
                     const errorJson = JSON.parse(errorText);
                     const errorMessage = errorJson.error.message || errorText;
                     throw new Error(`Erreur Gemini (${response.status}): ${errorMessage}`);
