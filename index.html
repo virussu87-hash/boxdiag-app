@@ -9,7 +9,6 @@
     <script src="https://apis.google.com/js/api.js" async defer></script>
 
     <style>
-        /* Animation subtile pour le chargement */
         @keyframes pulse-ring {
             0% { transform: scale(0.33); }
             80%, 100% { opacity: 0; }
@@ -27,20 +26,9 @@
             background-color: #3b82f6;
             animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
         }
-        /* Custom Scrollbar for logs */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #0f172a; 
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #334155; 
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #475569; 
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex items-center justify-center p-4">
@@ -52,20 +40,14 @@
                 <h1 class="text-2xl font-bold tracking-tight">BoxDiag Assistant</h1>
                 <p class="text-blue-200 text-sm mt-1">Automatisation de prise de rendez-vous via Audio IA</p>
             </div>
-            <div class="h-10 w-10 bg-white/10 rounded-full flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-            </div>
+            <div class="h-10 w-10 bg-white/10 rounded-full flex items-center justify-center">🎤</div>
         </div>
 
         <div class="p-8 space-y-8">
-
             <div class="space-y-4">
                 <div class="flex items-center justify-center w-full">
                     <label for="audioFile" class="flex flex-col items-center justify-center w-full h-32 border-2 border-blue-300 border-dashed rounded-lg cursor-pointer bg-blue-50 hover:bg-blue-100 transition-colors">
                         <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                            <svg class="w-8 h-8 mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                             <p class="mb-2 text-sm text-blue-600"><span class="font-semibold">Cliquez pour choisir l'audio</span></p>
                             <p class="text-xs text-blue-500" id="fileNameDisplay">MP3, WAV, M4A supportés</p>
                         </div>
@@ -88,32 +70,27 @@
                     <div class="opacity-50">> En attente de l'utilisateur...</div>
                 </div>
             </div>
-
         </div>
         
         <div class="bg-slate-50 px-8 py-4 border-t border-slate-200 text-center">
-            <p class="text-xs text-slate-400">Développé pour BoxDiag - Version 1.0.2 (TEST FINAL)</p>
+            <p class="text-xs text-slate-400">Version 1.0.3 (DEBUG MODE)</p>
         </div>
     </div>
 
     <script>
-        // --- CONSTANTES DE CONFIGURATION (HARDCODED) ---
+        // --- CONFIGURATION ---
         const CONFIG = {
             GEMINI_API_KEY: "AIzaSyBOBtY_bqaYBm6u8hWZYOi2TGW4EzfmNUk",
             GOOGLE_API_KEY: "AIzaSyCttcGULsWx2E1GaUf6qF4eodwTV7_q53k",
             CLIENT_ID: "77752051454-n0p16qpi5s69lm0trmk62o04cgcpp8o2.apps.googleusercontent.com"
         };
 
-        // --- VARIABLES D'ÉTAT ---
+        // --- VARIABLES ---
         let tokenClient;
-        let gapiInited = false;
-        let gisInited = false;
-        let accessToken = null;
-
         const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 
-        // Éléments DOM
+        // --- DOM ---
         const btn = document.getElementById('processBtn');
         const fileInput = document.getElementById('audioFile');
         const logsDiv = document.getElementById('logs');
@@ -121,21 +98,14 @@
         const btnText = document.getElementById('btnText');
         const fileNameDisplay = document.getElementById('fileNameDisplay');
 
-        // --- FONCTIONS UTILITAIRES ---
-
         function log(msg, type = 'info') {
             const div = document.createElement('div');
             const time = new Date().toLocaleTimeString();
-            // Autoriser le HTML dans les logs pour les liens
             div.innerHTML = `<span class="opacity-50">[${time}]</span> ${msg}`;
-            
             if (type === 'error') div.className = 'text-red-400 font-bold';
             else if (type === 'success') div.className = 'text-blue-300 font-bold';
-            else if (type === 'warn') div.className = 'text-yellow-400';
-            else div.className = 'text-green-400';
-
             logsDiv.appendChild(div);
-            logsDiv.scrollTop = logsDiv.scrollHeight; // Auto scroll
+            logsDiv.scrollTop = logsDiv.scrollHeight;
         }
 
         function setLoading(isLoading, text = "") {
@@ -157,293 +127,119 @@
             }
         });
 
-        // --- AUTHENTIFICATION GOOGLE ---
+        // --- AUTH ---
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+        async function initializeGapiClient() { log('GAPI chargé.', 'info'); }
+        function gisLoaded() { log('GIS chargé.', 'info'); }
 
-        // 1. Charger GAPI (Client API)
-        function gapiLoaded() {
-            gapi.load('client', initializeGapiClient);
-        }
-
-        async function initializeGapiClient() {
-            gapiInited = true;
-            log('Librairie GAPI chargée.', 'info');
-        }
-
-        // 2. Charger GIS (Identity Services)
-        function gisLoaded() {
-            gisInited = true;
-            log('Librairie Google Identity chargée.', 'info');
-        }
-
-        // Configurer les callbacks globaux pour les scripts Google
         window.onload = () => {
             if (typeof gapi !== 'undefined') gapiLoaded();
             if (typeof google !== 'undefined') gisLoaded();
         };
 
-        // 3. Gestionnaire de connexion
         async function handleAuth() {
-            const clientId = CONFIG.CLIENT_ID;
-            const apiKey = CONFIG.GOOGLE_API_KEY;
-
-            if (!clientId || !apiKey) {
-                log('ERREUR: Clés API manquantes dans la configuration.', 'error');
-                throw new Error("Missing Credentials");
-            }
-
-            // Init GAPI Client avec la clé API
-            await gapi.client.init({
-                apiKey: apiKey,
-                discoveryDocs: [DISCOVERY_DOC],
-            });
-
+            await gapi.client.init({ apiKey: CONFIG.GOOGLE_API_KEY, discoveryDocs: [DISCOVERY_DOC] });
             return new Promise((resolve, reject) => {
                 tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: clientId,
+                    client_id: CONFIG.CLIENT_ID,
                     scope: SCOPES,
                     callback: (resp) => {
-                        if (resp.error !== undefined) {
-                            reject(resp);
-                        }
-                        accessToken = resp.access_token;
-                        log('Authentification Google réussie !', 'success');
-                        resolve(accessToken);
+                        if (resp.error) reject(resp);
+                        resolve(resp.access_token);
                     },
                 });
-
-                if (gapi.client.getToken() === null) {
-                    log('Demande de permission Google Agenda...', 'warn');
-                    tokenClient.requestAccessToken({prompt: 'consent'});
-                } else {
-                    tokenClient.requestAccessToken({prompt: ''});
-                }
+                if (gapi.client.getToken() === null) tokenClient.requestAccessToken({prompt: 'consent'});
+                else tokenClient.requestAccessToken({prompt: ''});
             });
         }
 
-        // --- LOGIQUE MÉTIER ---
-
+        // --- LOGIQUE ---
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = () => {
-                    const base64String = reader.result.split(',')[1]; 
-                    resolve(base64String);
-                };
+                reader.onload = () => resolve(reader.result.split(',')[1]);
                 reader.onerror = error => reject(error);
             });
         }
 
-        // --- LE PROMPT SYSTÈME ---
         const getSystemPrompt = (filename, currentDate) => {
-            return `
-Rôle : Tu es un assistant IA pour Serghei RUSSU, Société: BoxDiag.
-Le fichier audio fourni est une discussion entre moi et un client. Le nom du fichier audio est : ${filename}.
-
-Règles :
-1. Analyse l'audio pour extraire les infos.
-2. Corrige les fautes pour la lisibilité.
-3. Standardise les adresses format Google Maps.
-4. La date actuelle pour le calcul est : ${currentDate}.
-
-Tu dois déterminer si c'est le SCÉNARIO 1 (RDV convenu) ou SCÉNARIO 2 (Pas de RDV).
-
-SORTIE ATTENDUE : Tu dois répondre UNIQUEMENT avec un objet JSON (sans bloc de code markdown) contenant les champs suivants :
-- \`eventTitle\`: Selon les règles ci-dessous.
-- \`startTime\`: Format ISO 8601.
-- \`endTime\`: Format ISO 8601 (Durée 60min pour Scénario 1, 30min pour Scénario 2).
-- \`location\`: L'adresse standardisée.
-- \`eventDescription\`: Une chaîne de texte MULTILIGNE qui respecte strictement les modèles de texte ci-dessous (ne mets pas de JSON ici, mais du texte formaté avec sauts de ligne).
-
---- RÈGLES DE CONTENU ---
-
-SCÉNARIO 1 : RDV CONVENU
-Si l'heure est manquante mais la date convenue, mets 08h00.
-Titre Agenda : \`[Nom Client] - [Prix]€\` (ou "NC.").
-Description (modèle strict à respecter dans le JSON field \`eventDescription\`) :
-RENDEZ-VOUS CONFIRMÉ
-
-Client :
-Nom : [Nom extrait]
-Téléphone : [Numéro extrait du nom de fichier ou audio]
-Email : [Email]
-De la part de: [Nom]
---------------------
-Bien Immobilier :
- - Adresse : [Adresse]
- - Accès : [Info]
- - Type : [Type]
- - Année construction : [Année]
- - Surface approx. : [Surface]
- - Numéro de lot : [Numéro]
- - Dépendances (Cave/Garage) : [Info]
---------------------
-Prestation :
-Diagnostics : [Liste]
-Prix convenu : [Prix]
---------------------
-Rendez-vous :
-Date : [JJ/MM/AAAA]
-Heure : [HH:MM]
---------------------
-Liste des tâches convenues:
-BoxDiag - [Tâches]
-Client - [Tâches]
---------------------
-RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
-[Résumé complet]
-
-SCÉNARIO 2 : PAS DE RDV
-Date/Heure : Maintenant (immédiat). Durée 30 min.
-Titre Agenda : \`Discussion téléphonique - [Nom Propriétaire]\`
-Description (modèle strict à respecter dans le JSON field \`eventDescription\`) :
-Sujet principal : [Sujet]
-
-Client :
-Nom : [Nom]
-Téléphone : [Numéro extrait du nom de fichier ou audio]
-Email : [Email]
-De la part de: [Nom]
-
-Bien Immobilier :
- - Adresse : [Adresse]
- - Accès : [Infos]
- - Type : [Type]
- - Année construction : [Année]
- - Surface approx. : [Surface]
- - Numéro de lot : [Numéro]
- - Dépendances : [Infos]
---------------------
-Liste des tâches convenues:
-BoxDiag - [Tâches]
-Client - [Tâches]
---------------------
-RÉSUMÉ DÉTAILLÉ DE LA DISCUSSION :
-[Résumé complet]
-`;
+            return `Rôle : Assistant pour BoxDiag. Fichier: ${filename}. Date: ${currentDate}.
+            SCÉNARIO 1 (RDV): JSON avec eventTitle, startTime, endTime, location, eventDescription.
+            SCÉNARIO 2 (Pas de RDV): Idem, durée 30min, titre 'Discussion'.
+            Réponds UNIQUEMENT en JSON valide.`;
         };
 
-        // --- PROCESSUS PRINCIPAL ---
-
         btn.addEventListener('click', async () => {
-            const geminiKey = CONFIG.GEMINI_API_KEY;
             const file = fileInput.files[0];
-
-            if (!geminiKey) { log("Erreur: Clé Gemini manquante dans la config.", "error"); return; }
-            if (!file) { log("Erreur: Aucun fichier audio sélectionné.", "error"); return; }
+            if (!file) { log("Erreur: Aucun fichier.", "error"); return; }
 
             try {
-                setLoading(true, "Authentification Google...");
-                
-                // 1. Authentification Google (Agenda)
+                setLoading(true, "Authentification...");
                 await handleAuth();
+                log("Authentification réussie.", "success");
 
-                // 2. Préparation Audio
-                setLoading(true, "Lecture du fichier audio...");
-                log(`Traitement du fichier: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`, 'info');
+                setLoading(true, "Lecture audio...");
                 const base64Audio = await fileToBase64(file);
 
-                // 3. Appel Gemini
-                setLoading(true, "Analyse IA par Gemini en cours...");
-                log("Envoi à Gemini... Cela peut prendre quelques secondes.", 'info');
-
-                const now = new Date().toLocaleString('fr-FR');
-                const finalPrompt = getSystemPrompt(file.name, now);
-
-                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + geminiKey;
+                setLoading(true, "Analyse Gemini...");
                 
-                const payload = {
-                    contents: [{
-                        parts: [
-                            { text: finalPrompt },
-                            { inline_data: { mime_type: file.type || "audio/mp3", data: base64Audio } }
-                        ]
-                    }]
-                };
+                // CONSTRUCTION URL SÉCURISÉE
+                const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CONFIG.GEMINI_API_KEY;
+                
+                log("Envoi à Gemini...", "info");
 
                 const response = await fetch(geminiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: getSystemPrompt(file.name, new Date().toLocaleString()) },
+                                { inline_data: { mime_type: file.type || "audio/mp3", data: base64Audio } }
+                            ]
+                        }]
+                    })
                 });
 
-                if (!response.ok) throw new Error(`Erreur Gemini API: ${response.statusText}`);
-
-                const data = await response.json();
-                
-                let rawText = data.candidates[0].content.parts[0].text;
-                rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                
-                log("Réponse reçue de Gemini. Parsing...", 'info');
-                const eventData = JSON.parse(rawText);
-
-                log(`Données extraites : ${eventData.eventTitle} @ ${eventData.startTime}`, 'success');
-
-                // 4. Création dans Google Agenda
-                setLoading(true, "Création de l'événement Agenda...");
-
-                const event = {
-                    'summary': eventData.eventTitle,
-                    'location': eventData.location,
-                    'description': eventData.eventDescription,
-                    'start': {
-                        'dateTime': eventData.startTime,
-                        'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone
-                    },
-                    'end': {
-                        'dateTime': eventData.endTime,
-                        'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone
-                    }
-                };
-
-                try {
-                    const insertResponse = await gapi.client.calendar.events.insert({
-                        'calendarId': 'primary',
-                        'resource': event
-                    });
-                    
-                    if (insertResponse.result && insertResponse.result.htmlLink) {
-                        log(`SUCCÈS ! Événement créé.`, 'success');
-                        log(`<a href="${insertResponse.result.htmlLink}" target="_blank" class="underline text-blue-300 font-bold hover:text-white">>> Ouvrir dans Google Agenda</a>`, 'success');
-                        alert("Rendez-vous créé avec succès !");
-                    } else {
-                        throw new Error("Pas de lien de confirmation reçu de Google Agenda.");
-                    }
-                } catch (gapiError) {
-                    throw gapiError;
+                // GESTION ERREUR AVANCÉE
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("Erreur Gemini Détail:", errorText); // Pour la console F12
+                    const errorJson = JSON.parse(errorText);
+                    const errorMessage = errorJson.error.message || errorText;
+                    throw new Error(`Erreur Gemini (${response.status}): ${errorMessage}`);
                 }
 
+                const data = await response.json();
+                let rawText = data.candidates[0].content.parts[0].text;
+                rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+                const eventData = JSON.parse(rawText);
+
+                log(`Données reçues : ${eventData.eventTitle}`, 'success');
+
+                setLoading(true, "Création Agenda...");
+                const insertResponse = await gapi.client.calendar.events.insert({
+                    'calendarId': 'primary',
+                    'resource': {
+                        'summary': eventData.eventTitle,
+                        'location': eventData.location,
+                        'description': eventData.eventDescription,
+                        'start': { 'dateTime': eventData.startTime },
+                        'end': { 'dateTime': eventData.endTime }
+                    }
+                });
+
+                log(`Événement créé ! <a href="${insertResponse.result.htmlLink}" target="_blank" class="underline font-bold">Voir l'agenda</a>`, 'success');
+                alert("Succès !");
                 setLoading(false);
 
             } catch (error) {
-                console.error("Erreur capturée:", error);
+                console.error(error);
+                log(`ERREUR CRITIQUE: ${error.message}`, 'error');
                 setLoading(false);
-
-                let errorMsg = error.message || JSON.stringify(error);
-                let errorBody = error.result || error;
-
-                if (errorBody && errorBody.error) {
-                    const code = errorBody.error.code;
-                    const msg = errorBody.error.message;
-                    
-                    if (code === 403 && (msg.includes("Google Calendar API has not been used") || msg.includes("is disabled"))) {
-                        const match = msg.match(/https:\/\/console\.developers\.google\.com\/apis\/api\/calendar-json\.googleapis\.com\/overview\?project=\d+/);
-                        const activationUrl = match ? match[0] : "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com";
-                        
-                        log(`⚠️ L'API Google Calendar n'est pas activée sur votre projet.`, 'warn');
-                        log(`<a href="${activationUrl}" target="_blank" class="text-white underline font-bold bg-red-600 px-2 py-1 rounded">CLIQUEZ ICI POUR ACTIVER L'API</a>`, 'error');
-                        log(`Après activation, attendez 2 minutes et réessayez.`, 'warn');
-                        return;
-                    }
-                    errorMsg = `Google API Error (${code}): ${msg}`;
-                }
-
-                log(`ERREUR: ${errorMsg}`, 'error');
             }
         });
-
     </script>
 </body>
 </html>
-
-
